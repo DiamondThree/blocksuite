@@ -18,6 +18,7 @@ import {
   getBlockElementByModel,
   getAllBlocks,
   getDefaultPageBlock,
+  getBlockById,
 } from '../../__internal__';
 import type { RichText } from '../../__internal__/rich-text/rich-text';
 import {
@@ -161,10 +162,36 @@ export class DefaultSelectionManager {
       this._onContainerMouseOut,
       this._onContainerContextMenu
     );
+    this._initListenNativeSelection();
   }
   private get _blocks(): BaseBlockModel[] {
     return (this.page.root?.children[0].children as BaseBlockModel[]) ?? [];
   }
+
+  private _initListenNativeSelection() {
+    document.addEventListener('selectionchange', this._onNativeSelectionChange);
+  }
+
+  private _onNativeSelectionChange = () => {
+    const selection = window.getSelection();
+    if (selection?.isCollapsed && selection?.rangeCount) {
+      let { anchorNode } = selection;
+      this.state.type = 'native';
+      if (anchorNode) {
+        anchorNode =
+          anchorNode instanceof Element ? anchorNode : anchorNode.parentElement;
+        const blockModel = getModelByElement(anchorNode as Element);
+        if (blockModel) {
+          const block = getBlockById(blockModel.id);
+          if (block) {
+            this.state.selectedBlocks = [block];
+            this._signals.updateSelectedRects.emit([]);
+            this._signals.updateFrameSelectionRect.emit(null);
+          }
+        }
+      }
+    }
+  };
 
   private _onBlockSelectionDragStart(e: SelectionEvent) {
     this.state.type = 'block';
